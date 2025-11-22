@@ -17,26 +17,66 @@ public class PlayerInventory : MonoBehaviour
     // Calcule le nombre de lignes nécessaires (8 slots / 4 cols = 2 lignes)
     public int Rows => Mathf.CeilToInt((float)maxSlots / columns);
 
-    // Tente d'ajouter un objet automatiquement (cherche la première place libre)
     public bool AddItem(ItemData data)
     {
+        // 1. SI STACKABLE : Chercher un stack existant non-plein
+        if (data.isStackable)
+        {
+            foreach (var existingItem in storedItems)
+            {
+                if (existingItem.data == data && existingItem.stackSize < data.maxStackSize)
+                {
+                    existingItem.stackSize++;
+                    return true; // Ajouté au stack existant
+                }
+            }
+        }
+
+        // 2. SINON : Chercher une place vide (Logique Tetris classique)
         for (int y = 0; y < Rows; y++)
         {
             for (int x = 0; x < columns; x++)
             {
-                // Par défaut on essaie sans rotation (data.width, data.height)
                 if (CanPlaceItemAt(data.width, data.height, x, y))
                 {
                     InventoryItem newItem = new InventoryItem(data);
                     newItem.x = x;
                     newItem.y = y;
+                    newItem.stackSize = 1; // Commence à 1
                     storedItems.Add(newItem);
                     return true;
                 }
-                // Optionnel : Tu pourrais tester ici "si ça rentre pas, essaie de tourner"
             }
         }
-        return false;
+        return false; // Inventaire plein
+    }
+
+    public int ConsumeItem(ItemData data, int amountNeeded)
+    {
+        int amountConsumed = 0;
+
+        // On parcourt l'inventaire à l'envers pour pouvoir supprimer sans casser la boucle
+        for (int i = storedItems.Count - 1; i >= 0; i--)
+        {
+            if (amountConsumed >= amountNeeded) break;
+
+            var item = storedItems[i];
+            if (item.data == data)
+            {
+                // Combien on peut prendre dans ce stack ?
+                int take = Mathf.Min(amountNeeded - amountConsumed, item.stackSize);
+
+                item.stackSize -= take;
+                amountConsumed += take;
+
+                // Si le stack est vide, on supprime l'objet
+                if (item.stackSize <= 0)
+                {
+                    storedItems.RemoveAt(i);
+                }
+            }
+        }
+        return amountConsumed; // Retourne combien on a réussi à récupérer
     }
 
     // Vérifie si un objet rentre à cette position (x,y)

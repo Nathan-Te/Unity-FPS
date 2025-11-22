@@ -97,6 +97,9 @@ public class HeavyFPSController : MonoBehaviour
     private bool _canSprintWhileCarrying = true;
     public bool IsCarrying => _isCarryingObject;
 
+    private float _recoilPitch;
+    private float _recoilYaw;
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -497,6 +500,20 @@ public class HeavyFPSController : MonoBehaviour
         _isCarryingObject = false;
         _currentCarrySpeedMultiplier = 1.0f;
         _canSprintWhileCarrying = true;
+    }
+
+    public void AddCameraRecoil(float vertical, float horizontal)
+    {
+        // On modifie directement les angles de rotation internes
+        // Vertical : On soustrait car regarder en haut = X négatif dans Unity
+        _rotationX -= vertical;
+
+        // Horizontal : Random pour aller un peu à gauche ou à droite
+        float horizonRandom = Random.Range(-horizontal, horizontal);
+        _rotationY += horizonRandom;
+
+        // Note : Dans un vrai FPS, on lisse ça sur quelques frames, 
+        // mais pour commencer, l'application directe est très "snappy".
     }
 
     void OnDrawGizmosSelected()

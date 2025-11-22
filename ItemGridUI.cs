@@ -6,6 +6,7 @@ public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
 {
     [Header("UI")]
     public Image iconImage;
+    public TMPro.TextMeshProUGUI quantityText;
 
     // Données internes
     public InventoryItem myItem;
@@ -21,7 +22,20 @@ public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
         _manager = manager;
         _rect = GetComponent<RectTransform>();
         _canvas = GetComponentInParent<Canvas>();
+
         iconImage.sprite = item.data.icon;
+
+        // GESTION QUANTITÉ
+        if (item.data.isStackable && item.stackSize > 1)
+        {
+            quantityText.gameObject.SetActive(true);
+            quantityText.text = item.stackSize.ToString();
+        }
+        else
+        {
+            // On cache le texte si c'est 1 ou non stackable
+            if (quantityText) quantityText.gameObject.SetActive(false);
+        }
 
         RefreshVisualSize(); // On sort la logique de taille dans une fonction
         UpdatePositionOnGrid();

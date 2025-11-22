@@ -14,4 +14,8 @@ public class ItemData : ScriptableObject
     [Header("Dimensions (Tetris)")]
     [Min(1)] public int width = 1;  // Largeur (Colonnes)
     [Min(1)] public int height = 1; // Hauteur (Lignes)
+
+    [Header("Stacking")]
+    public bool isStackable = false;
+    [Min(1)] public int maxStackSize = 1; // Ex: 60 pour des balles
 }
