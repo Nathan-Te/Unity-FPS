@@ -8,6 +8,7 @@ public class InventoryUI : MonoBehaviour
     [Header("Références Générales")]
     public GameObject inventoryPanel;
     public PlayerInventory playerInventory;
+    public InspectionManager inspectionManager;
 
     [Header("Grille (Tetris)")]
     public RectTransform gridContainer; // Le conteneur des ITEMS (Items_Layer)
@@ -134,34 +135,36 @@ public class InventoryUI : MonoBehaviour
     public void OnItemEndDrag(ItemGridUI itemUI)
     {
         float size = playerInventory.tileSize;
-
-        // Position locale de l'objet par rapport au conteneur
         Vector2 localPos = itemUI.GetComponent<RectTransform>().anchoredPosition;
 
-        // Conversion Pixel -> Index Grille
-        // On arrondit au slot le plus proche
-        // On inverse Y car dans l'UI le bas est négatif
+        // Pour centrer le pivot lors du calcul (optionnel mais aide la précision quand l'objet est tourné)
+        // On garde ton calcul actuel pour l'instant qui est simple et efficace
         int targetX = Mathf.RoundToInt(localPos.x / size);
         int targetY = Mathf.RoundToInt(-localPos.y / size);
 
-        // On demande à l'inventaire si on peut poser l'objet ici
-        // On passe l'objet lui-même (itemUI.myItem) en "ignore" pour ne pas qu'il se bloque lui-même
-        if (playerInventory.CanPlaceItemAt(itemUI.myItem.data, targetX, targetY, itemUI.myItem))
+        // ON PASSE LA TAILLE ACTUELLE (qui a peut-être changé avec R)
+        if (playerInventory.CanPlaceItemAt(itemUI.myItem.Width, itemUI.myItem.Height, targetX, targetY, itemUI.myItem))
         {
-            // VALIDE : On met à jour les coordonnées logiques
             itemUI.myItem.x = targetX;
             itemUI.myItem.y = targetY;
-
-            // On le place visuellement parfaitement dans la case
             itemUI.UpdatePositionOnGrid();
-
-            Debug.Log($"Item déplacé en {targetX}, {targetY}");
         }
         else
         {
-            // INVALIDE : On le remet à sa place d'origine
+            // Invalide : On annule TOUT (Position ET Rotation)
+            // Si l'utilisateur a tourné l'objet mais ne peut pas le poser, on remet la rotation d'avant ?
+            // Ou on laisse la rotation mais on remet à la place ?
+            // Simplification : On remet à la place, mais on garde la rotation si elle rentre à la place d'origine.
+
+            // Vérifions si la rotation actuelle rentre à la place d'origine
+            if (!playerInventory.CanPlaceItemAt(itemUI.myItem.Width, itemUI.myItem.Height, itemUI.myItem.x, itemUI.myItem.y, itemUI.myItem))
+            {
+                // Si ça rentre pas à l'origine avec la nouvelle rotation, on annule la rotation
+                itemUI.myItem.isRotated = !itemUI.myItem.isRotated; // Undo rotation
+                itemUI.Setup(itemUI.myItem, this); // Refresh total
+            }
+
             itemUI.UpdatePositionOnGrid();
-            Debug.Log("Déplacement invalide (Collision ou Hors Limites)");
         }
     }
 
@@ -188,6 +191,14 @@ public class InventoryUI : MonoBehaviour
             _selectedItem = null;
             detailsPanel.SetActive(false);
             RefreshItems(); // On redessine tout car un objet a disparu
+        }
+    }
+
+    public void OnExamineButton()
+    {
+        if (_selectedItem != null)
+        {
+            inspectionManager.InspectItem(_selectedItem.data);
         }
     }
 }

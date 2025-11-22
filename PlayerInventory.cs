@@ -20,46 +20,43 @@ public class PlayerInventory : MonoBehaviour
     // Tente d'ajouter un objet automatiquement (cherche la première place libre)
     public bool AddItem(ItemData data)
     {
-        // On parcourt la grille case par case pour trouver un trou
         for (int y = 0; y < Rows; y++)
         {
             for (int x = 0; x < columns; x++)
             {
-                if (CanPlaceItemAt(data, x, y))
+                // Par défaut on essaie sans rotation (data.width, data.height)
+                if (CanPlaceItemAt(data.width, data.height, x, y))
                 {
-                    // Place trouvée !
                     InventoryItem newItem = new InventoryItem(data);
                     newItem.x = x;
                     newItem.y = y;
                     storedItems.Add(newItem);
-                    Debug.Log($"Item placé en {x},{y}");
                     return true;
                 }
+                // Optionnel : Tu pourrais tester ici "si ça rentre pas, essaie de tourner"
             }
         }
-        Debug.Log("Pas de place !");
         return false;
     }
 
     // Vérifie si un objet rentre à cette position (x,y)
-    public bool CanPlaceItemAt(ItemData data, int startX, int startY, InventoryItem ignoreItem = null)
+    public bool CanPlaceItemAt(int itemWidth, int itemHeight, int startX, int startY, InventoryItem ignoreItem = null)
     {
-        // --- CORRECTION ICI : Vérifier les limites négatives ---
+        // Vérifier limites négatives
         if (startX < 0 || startY < 0) return false;
-        // -----------------------------------------------------
 
-        // 1. Est-ce que ça sort de la grille (Limites positives) ?
-        if (startX + data.width > columns) return false;
-        if (startY + data.height > Rows) return false;
+        // 1. Limites Grille
+        if (startX + itemWidth > columns) return false;
+        if (startY + itemHeight > Rows) return false;
 
-        // 2. Est-ce que ça chevauche un autre objet ?
+        // 2. Chevauchement
         foreach (var item in storedItems)
         {
             if (item == ignoreItem) continue;
 
-            // Test de collision de rectangles (AABB)
-            bool overlapX = (startX < item.x + item.data.width) && (startX + data.width > item.x);
-            bool overlapY = (startY < item.y + item.data.height) && (startY + data.height > item.y);
+            // On utilise les propriétés dynamiques Width/Height de l'item stocké (qui peut être tourné)
+            bool overlapX = (startX < item.x + item.Width) && (startX + itemWidth > item.x);
+            bool overlapY = (startY < item.y + item.Height) && (startY + itemHeight > item.y);
 
             if (overlapX && overlapY) return false;
         }

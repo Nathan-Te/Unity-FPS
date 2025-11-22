@@ -95,6 +95,7 @@ public class HeavyFPSController : MonoBehaviour
     private bool _isCarryingObject;
     private float _currentCarrySpeedMultiplier = 1.0f;
     private bool _canSprintWhileCarrying = true;
+    public bool IsCarrying => _isCarryingObject;
 
     void Start()
     {

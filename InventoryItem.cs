@@ -10,4 +10,7 @@ public class InventoryItem
     {
         this.data = data;
     }
+
+    public int Width => isRotated ? data.height : data.width;
+    public int Height => isRotated ? data.width : data.height;
 }
