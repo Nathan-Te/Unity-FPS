@@ -17,7 +17,7 @@ public class PlayerInventory : MonoBehaviour
     // Calcule le nombre de lignes nécessaires (8 slots / 4 cols = 2 lignes)
     public int Rows => Mathf.CeilToInt((float)maxSlots / columns);
 
-    public bool AddItem(ItemData data)
+    public bool AddItem(ItemData data, int amount = 1)
     {
         // 1. SI STACKABLE : Chercher un stack existant non-plein
         if (data.isStackable)
@@ -26,29 +26,46 @@ public class PlayerInventory : MonoBehaviour
             {
                 if (existingItem.data == data && existingItem.stackSize < data.maxStackSize)
                 {
-                    existingItem.stackSize++;
-                    return true; // Ajouté au stack existant
+                    // On ajoute ce qu'on peut
+                    int spaceLeft = data.maxStackSize - existingItem.stackSize;
+                    int toAdd = Mathf.Min(spaceLeft, amount);
+
+                    existingItem.stackSize += toAdd;
+                    amount -= toAdd;
+
+                    // Si on a tout casé, c'est fini
+                    if (amount <= 0) return true;
                 }
             }
         }
 
-        // 2. SINON : Chercher une place vide (Logique Tetris classique)
-        for (int y = 0; y < Rows; y++)
+        // 2. S'il reste de la quantité à ajouter (ou si non stackable), on cherche une case vide
+        // Note : Si amount > maxStackSize, idéalement il faudrait créer plusieurs slots.
+        // Ici on simplifie : on crée un slot avec le reste (quitte à dépasser le maxStackSize temporairement ou le limiter)
+
+        if (amount > 0)
         {
-            for (int x = 0; x < columns; x++)
+            for (int y = 0; y < Rows; y++)
             {
-                if (CanPlaceItemAt(data.width, data.height, x, y))
+                for (int x = 0; x < columns; x++)
                 {
-                    InventoryItem newItem = new InventoryItem(data);
-                    newItem.x = x;
-                    newItem.y = y;
-                    newItem.stackSize = 1; // Commence à 1
-                    storedItems.Add(newItem);
-                    return true;
+                    if (CanPlaceItemAt(data.width, data.height, x, y))
+                    {
+                        InventoryItem newItem = new InventoryItem(data);
+                        newItem.x = x;
+                        newItem.y = y;
+
+                        // --- ICI ON ASSIGNE LA QUANTITÉ ---
+                        newItem.stackSize = amount;
+
+                        storedItems.Add(newItem);
+                        return true;
+                    }
                 }
             }
         }
-        return false; // Inventaire plein
+
+        return false; // Inventaire plein et impossible de stacker le reste
     }
 
     public int ConsumeItem(ItemData data, int amountNeeded)
@@ -111,10 +128,25 @@ public class PlayerInventory : MonoBehaviour
 
     public void DropItem(InventoryItem item)
     {
+        // 1. On retire l'item de la liste logique
         RemoveItem(item);
+
+        // 2. On fait apparaître l'objet 3D dans le monde
         if (item.data.prefab != null && dropPoint != null)
         {
-            Instantiate(item.data.prefab, dropPoint.position, dropPoint.rotation);
+            GameObject droppedObject = Instantiate(item.data.prefab, dropPoint.position, dropPoint.rotation);
+
+            // --- CORRECTIF STACKABLE ---
+            // On vérifie si l'objet droppé possède le script ItemPickup
+            // Si oui, on lui transfère la quantité qu'on avait dans l'inventaire
+            ItemPickup pickupScript = droppedObject.GetComponent<ItemPickup>();
+            if (pickupScript != null)
+            {
+                // Si l'objet est stackable, on passe le stackSize (ex: 8)
+                // Sinon on passe 1 (par sécurité)
+                pickupScript.quantity = item.data.isStackable ? item.stackSize : 1;
+            }
+            // ---------------------------
         }
     }
 }

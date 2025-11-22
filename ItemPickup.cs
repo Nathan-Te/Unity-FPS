@@ -3,13 +3,17 @@ using UnityEngine;
 public class ItemPickup : MonoBehaviour, IInteractable
 {
     [Header("Données")]
-    public ItemData itemData; // On glissera la fiche "Clé Rouge" ici
+    public ItemData itemData;
+
+    [Min(1)]
+    public int quantity = 1; // NOUVEAU : Quantité contenue (ex: 12 balles)
 
     public string InteractionPrompt
     {
         get
         {
-            return itemData != null ? $"Prendre {itemData.itemName}" : "Prendre Objet";
+            string qtyString = (itemData != null && itemData.isStackable && quantity > 1) ? $" x{quantity}" : "";
+            return itemData != null ? $"Prendre {itemData.itemName}{qtyString}" : "Prendre Objet";
         }
     }
 
@@ -19,20 +23,13 @@ public class ItemPickup : MonoBehaviour, IInteractable
 
         if (inventory != null && itemData != null)
         {
-            // On tente d'ajouter l'objet
-            bool success = inventory.AddItem(itemData);
+            // On passe la quantité à l'inventaire
+            bool success = inventory.AddItem(itemData, quantity);
 
             if (success)
             {
-                // Si ça a marché, on détruit l'objet au sol
                 Destroy(gameObject);
                 return true;
-            }
-            else
-            {
-                // Si c'est plein, on ne fait rien (ou on affiche un message UI "Inventaire Plein")
-                // Le joueur ne peut pas ramasser
-                return false;
             }
         }
         return false;

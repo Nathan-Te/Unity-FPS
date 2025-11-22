@@ -121,48 +121,43 @@ public class SimpleWeapon : MonoBehaviour
 
     IEnumerator ReloadRoutine()
     {
-        // Vérification : A-t-on des munitions dans l'inventaire ?
-        // (Si ammoItemData est null, on considère munitions infinies pour le test)
-        InventoryItem foundAmmoBox = null;
+        if (_isReloading) yield break;
 
-        // 2. CONSOMMATION MUNITIONS (NOUVEAU)
+        // 1. Calculer combien il nous manque
+        int needed = maxAmmo - currentAmmo;
+        int taken = 0;
+
+        // 2. Tenter de consommer les munitions (SI on a un inventaire et une ref de balles)
         if (ammoItemData != null && _inventory != null)
         {
-            int needed = maxAmmo - currentAmmo;
+            taken = _inventory.ConsumeItem(ammoItemData, needed);
 
-            // On demande à l'inventaire de nous trouver 'needed' balles
-            int taken = _inventory.ConsumeItem(ammoItemData, needed);
-
-            if (taken > 0)
+            if (taken <= 0)
             {
-                currentAmmo += taken;
-                // Important : Rafraichir l'UI car des nombres ont changé
-                FindAnyObjectByType<InventoryUI>().SendMessage("RefreshItems", SendMessageOptions.DontRequireReceiver);
-            }
-            else
-            {
-                Debug.Log("Pas de munitions trouvées !");
-                _isReloading = false;
+                Debug.Log("Pas de munitions !");
                 yield break;
             }
         }
-
-        _isReloading = true;
-        Debug.Log("Reloading...");
-        if (audioSource && reloadSound) audioSource.PlayOneShot(reloadSound);
-
-        // Simulation temps de rechargement
-        yield return new WaitForSeconds(1.5f);
-
-        // Consommation de l'objet (Tetris)
-        if (foundAmmoBox != null)
+        else
         {
-            _inventory.RemoveItem(foundAmmoBox);
-            // Mettre à jour l'UI
-            FindAnyObjectByType<InventoryUI>().SendMessage("RefreshItems", SendMessageOptions.DontRequireReceiver);
+            // Mode "Munitions Infinies" (Cheat/Debug) si pas d'itemData assigné
+            taken = needed;
         }
 
-        currentAmmo = maxAmmo;
+        _isReloading = true;
+        if (audioSource && reloadSound) audioSource.PlayOneShot(reloadSound);
+
+        // 3. Attendre l'animation
+        yield return new WaitForSeconds(1.5f);
+
+        // 4. Appliquer le résultat
+        currentAmmo += taken; // On ajoute SEULEMENT ce qu'on a pris
+
+        // La ligne "currentAmmo = maxAmmo" a été SUPPRIMÉE ici, c'était elle la coupable.
+
         _isReloading = false;
+
+        // Rafraichir UI Inventaire si ouvert (optionnel mais propre)
+        if (_inventory) FindAnyObjectByType<InventoryUI>()?.SendMessage("RefreshItems", SendMessageOptions.DontRequireReceiver);
     }
 }

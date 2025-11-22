@@ -26,7 +26,7 @@ public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
         iconImage.sprite = item.data.icon;
 
         // GESTION QUANTITÉ
-        if (item.data.isStackable && item.stackSize > 1)
+        if (item.data.isStackable)
         {
             quantityText.gameObject.SetActive(true);
             quantityText.text = item.stackSize.ToString();
@@ -55,31 +55,29 @@ public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
     {
         float size = _manager.playerInventory.tileSize;
 
-        // 1. Dimensionner le CONTENEUR (La Hitbox / Cadre)
-        // C'est lui qui occupe les cases dans la grille
+        // 1. Dimensionner le CONTENEUR (La Hitbox / Cadre invisible)
         Vector2 containerSize = new Vector2(myItem.Width * size, myItem.Height * size);
         _rect.sizeDelta = containerSize;
 
         // 2. Dimensionner et Tourner l'ICÔNE (Le Visuel)
         RectTransform iconRect = iconImage.rectTransform;
 
+        // --- CORRECTIF MARGE (90% ou 95%) ---
+        // On réduit la taille de l'image pour qu'elle ne touche pas les bords
+        float marginScale = 0.90f; // Essaie 0.9f, c'est souvent plus joli que 0.95f
+        // ------------------------------------
+
         if (myItem.isRotated)
         {
-            // Rotation de -90 degrés
             iconRect.localRotation = Quaternion.Euler(0, 0, -90);
-
-            // IMPORTANT : Quand l'image est tournée à 90°, son axe X local devient l'axe Y du monde.
-            // Donc pour qu'elle remplisse un conteneur vertical (100x300), 
-            // l'image doit faire 300 de large (son X local) et 100 de haut (son Y local).
-            iconRect.sizeDelta = new Vector2(containerSize.y, containerSize.x);
+            // Inversion des dimensions pour la rotation + Application de la marge
+            iconRect.sizeDelta = new Vector2(containerSize.y * marginScale, containerSize.x * marginScale);
         }
         else
         {
-            // Pas de rotation
             iconRect.localRotation = Quaternion.identity;
-
-            // L'image fait la même taille que le conteneur
-            iconRect.sizeDelta = containerSize;
+            // Taille standard + Application de la marge
+            iconRect.sizeDelta = containerSize * marginScale;
         }
     }
 
