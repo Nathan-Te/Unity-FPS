@@ -30,7 +30,6 @@ public class ExplosiveProjectile : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        Debug.Log(collision.gameObject.name);
         // Si on est en mode "Roquette", on explose au moindre contact solide
         if (explodeOnContact)
         {
