@@ -3,77 +3,66 @@ using UnityEngine;
 public class ProjectileWeapon : WeaponBase
 {
     [Header("Spécifique Projectile")]
-    public Transform muzzle;
+    public Transform muzzle; // On le garde juste pour la référence, même si on spawn depuis la cam
     public GameObject projectilePrefab;
     public float launchForce = 20f;
 
-    [Header("Visée")]
-    [Tooltip("Qu'est-ce que le viseur peut toucher ? (Décoche Player et Triggers)")]
-    public LayerMask aimingMask = ~0; // Tout par défaut
+    [Tooltip("Distance devant la caméra pour faire apparaître le projectile (évite le clipping)")]
+    public float spawnForwardOffset = 0.5f;
 
     protected override void ExecuteFireLogic()
     {
-        if (projectilePrefab != null && muzzle != null)
+        if (projectilePrefab != null)
         {
             // ---------------------------------------------------------
-            // 1. CALCUL DE LA CIBLE (Convergence Caméra -> Monde)
+            // 1. POSITONNEMENT SUR LA CAMÉRA (Style Doom/Quake)
             // ---------------------------------------------------------
 
             Camera cam = Camera.main;
-            Vector3 targetPoint;
 
-            // On tire un rayon depuis le centre exact de l'écran (0.5, 0.5)
-            // C'est là que se trouve ton Crosshair
-            Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-            RaycastHit hit;
+            // Position : Au centre de la caméra + un petit décalage devant pour ne pas l'avoir dans l'oeil
+            Vector3 spawnPos = cam.transform.position + (cam.transform.forward * spawnForwardOffset);
 
-            // On ignore le layer du joueur pour ne pas se viser soi-même
-            // Astuce : Si aimingMask est mal réglé, le tir partira dans les pieds.
-            if (Physics.Raycast(ray, out hit, 1000f, aimingMask))
-            {
-                targetPoint = hit.point;
-            }
-            else
-            {
-                // Si on vise le ciel, on vise un point très loin devant la caméra
-                targetPoint = ray.GetPoint(1000f);
-            }
-
-            // La direction réelle = Du Muzzle VERS le Point Visé
-            Vector3 fireDirection = (targetPoint - muzzle.position).normalized;
+            // Rotation : Celle de la caméra (regarde tout droit)
+            Quaternion spawnRot = cam.transform.rotation;
 
             // ---------------------------------------------------------
-            // 2. CRÉATION DU PROJECTILE
+            // 2. CRÉATION
             // ---------------------------------------------------------
 
-            // On oriente le projectile pour qu'il regarde sa destination
-            GameObject proj = Instantiate(projectilePrefab, muzzle.position, Quaternion.LookRotation(fireDirection));
+            GameObject proj = Instantiate(projectilePrefab, spawnPos, spawnRot);
 
-            // --- SÉCURITÉ COLLISION (Ton code précédent) ---
+            // --- SÉCURITÉ COLLISION ---
             if (_playerController == null) _playerController = FindAnyObjectByType<HeavyFPSController>();
 
             if (_playerController != null)
             {
                 Collider projCollider = proj.GetComponent<Collider>();
-                Collider playerCollider = _playerController.GetComponent<Collider>(); // Attention, ici on prend le collider racine
+                Collider playerCollider = _playerController.GetComponent<Collider>(); // Collider Racine (Capsule)
 
-                // Sécurité supplémentaire : On ignore aussi les colliders enfants du joueur (bras, etc.)
+                // On ignore la capsule principale
+                if (projCollider != null && playerCollider != null)
+                {
+                    Physics.IgnoreCollision(projCollider, playerCollider);
+                }
+
+                // On ignore aussi les enfants (Bras, Arme, etc.) pour éviter que la grenade ne tape le fusil
                 Collider[] allPlayerColliders = _playerController.GetComponentsInChildren<Collider>();
                 foreach (var col in allPlayerColliders)
                 {
                     if (projCollider != null) Physics.IgnoreCollision(projCollider, col);
                 }
             }
-            // -----------------------------------------------
+            // --------------------------
 
-            // 3. APPLICATION DE LA VITESSE
+            // 3. VITESSE (Tout droit devant la caméra)
             Rigidbody rb = proj.GetComponent<Rigidbody>();
             if (rb != null)
             {
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-                // C'EST ICI LE CHANGEMENT : On utilise fireDirection au lieu de muzzle.forward
-                rb.linearVelocity = fireDirection * launchForce;
+                // La direction est simplement le "Forward" de la caméra
+                rb.linearVelocity = cam.transform.forward * launchForce;
             }
         }
     }
