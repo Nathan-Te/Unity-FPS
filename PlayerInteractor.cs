@@ -38,11 +38,6 @@ public class PlayerInteractor : MonoBehaviour
             {
                 _currentInteractable.Interact(_playerController);
             }
-            // Cas 2 : Pas de cible, mais on tient un objet -> On le lâche
-            else if (_physicsGrabber != null && _physicsGrabber.IsGrabbing)
-            {
-                _physicsGrabber.DropObject();
-            }
         }
     }
 

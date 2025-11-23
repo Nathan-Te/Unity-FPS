@@ -4,42 +4,43 @@ using UnityEngine;
 public class PhysicsGrabber : MonoBehaviour
 {
     [Header("Références")]
+    public Transform playerCamera;
     public Transform holdPoint;
+
+    [Header("Détection")]
     public LayerMask grabLayer;
+    public float reachDistance = 3.0f;
 
     [Header("Settings Physique")]
     public float grabForce = 150f;
     public float grabDamper = 10f;
     public float dragForce = 10f;
     public float throwForce = 15f;
-    public float reachDistance = 3f;
+    // J'ai retiré "throwSpin" des variables car inutile
 
     [Header("Sécurité")]
-    // Si l'objet s'éloigne de plus de X mètres (ex: coincé dans un mur), on le lâche
-    public float breakDistance = 4.0f;
+    public float breakDistance = 2.0f;
 
-    // ... (Variables privées inchangées : _heldRigidbody, _playerController, etc.) ...
     private Rigidbody _heldRigidbody;
     private HeavyFPSController _playerController;
+
     private float _initialDrag;
     private float _initialAngularDrag;
+    private bool _initialUseGravity;
+    private CollisionDetectionMode _initialDetectionMode;
+
     public bool IsGrabbing => _heldRigidbody != null;
 
     void Start()
     {
         _playerController = GetComponent<HeavyFPSController>();
+        if (playerCamera == null) playerCamera = _playerController.visualRoot;
     }
 
     void Update()
     {
-        // Sécurité Menu
         if (Cursor.lockState != CursorLockMode.Locked) return;
-
-        if (_heldRigidbody != null)
-        {
-            if (Input.GetMouseButtonDown(0)) ThrowObject();
-            else if (Input.GetMouseButtonDown(1)) DropObject();
-        }
+        HandleInput();
     }
 
     void FixedUpdate()
@@ -50,22 +51,57 @@ public class PhysicsGrabber : MonoBehaviour
         }
     }
 
-    // ... (Méthodes Grab, DropObject, ThrowObject, ClearObjectPhysics inchangées) ...
-    public void Grab(PhysicsGrabbable grabbableObject)
+    void HandleInput()
     {
-        if (_heldRigidbody != null) DropObject();
-        _heldRigidbody = grabbableObject.GetComponent<Rigidbody>();
-        _heldRigidbody.useGravity = false;
-        _initialDrag = _heldRigidbody.linearDamping;
-        _initialAngularDrag = _heldRigidbody.angularDamping;
-        _heldRigidbody.linearDamping = dragForce;
-        _heldRigidbody.angularDamping = dragForce;
-        _playerController.SetCarryingState(true, grabbableObject.speedMultiplier, grabbableObject.allowSprinting);
+        if (_heldRigidbody != null)
+        {
+            // Relâcher (Clic Gauche UP)
+            if (Input.GetMouseButtonUp(0)) DropObject();
+            // Lancer (Clic Droit DOWN)
+            else if (Input.GetMouseButtonDown(1)) ThrowObject();
+        }
+        else
+        {
+            // Attraper (Clic Gauche DOWN)
+            if (Input.GetMouseButtonDown(0)) TryGrab();
+        }
+    }
+
+    void TryGrab()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, reachDistance, grabLayer))
+        {
+            PhysicsGrabbable grabbable = hit.collider.GetComponentInParent<PhysicsGrabbable>();
+            if (grabbable != null && grabbable.rb != null)
+            {
+                Grab(grabbable);
+            }
+        }
+    }
+
+    public void Grab(PhysicsGrabbable grabbable)
+    {
+        Rigidbody rb = grabbable.rb;
+
+        _initialDrag = rb.linearDamping;
+        _initialAngularDrag = rb.angularDamping;
+        _initialUseGravity = rb.useGravity;
+        _initialDetectionMode = rb.collisionDetectionMode;
+
+        rb.useGravity = false;
+        rb.linearDamping = dragForce;
+        rb.angularDamping = dragForce;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+        _heldRigidbody = rb;
+        _playerController.SetCarryingState(true, grabbable.speedMultiplier, grabbable.allowSprinting);
     }
 
     public void DropObject()
     {
         if (_heldRigidbody == null) return;
+
         ClearObjectPhysics();
         _heldRigidbody = null;
         _playerController.ResetCarryingState();
@@ -74,42 +110,42 @@ public class PhysicsGrabber : MonoBehaviour
     void ThrowObject()
     {
         if (_heldRigidbody == null) return;
+
         Rigidbody rb = _heldRigidbody;
-        ClearObjectPhysics();
-        rb.AddForce(holdPoint.forward * throwForce, ForceMode.Impulse);
-        _heldRigidbody = null;
-        _playerController.ResetCarryingState();
+
+        // On lâche l'objet proprement (remet la gravité, etc.)
+        DropObject();
+
+        // --- PROPULSION PURE ---
+        // Aucune rotation ajoutée ("AddTorque" supprimé).
+        // L'objet partira droit et ne tournera que s'il percute un mur/sol.
+        rb.AddForce(playerCamera.forward * throwForce, ForceMode.Impulse);
     }
 
     void MoveObjectToHoldPoint()
     {
-        // Calcul de la distance actuelle
-        Vector3 direction = holdPoint.position - _heldRigidbody.position;
-        float distance = direction.magnitude;
-
-        // --- NOUVEAU : CHECK DE RUPTURE ---
-        if (distance > breakDistance)
+        float distanceToHand = Vector3.Distance(_heldRigidbody.position, holdPoint.position);
+        if (distanceToHand > breakDistance)
         {
-            // L'objet est trop loin (coincé), on force le lâcher
             DropObject();
-            return; // On arrête là pour ne pas faire de calculs sur un objet null
+            return;
         }
-        // ----------------------------------
 
-        Vector3 targetVelocity = direction.normalized * (distance * grabForce);
+        Vector3 direction = holdPoint.position - _heldRigidbody.position;
+        Vector3 targetVelocity = direction * grabForce;
         Vector3 force = targetVelocity - _heldRigidbody.linearVelocity * grabDamper;
 
         _heldRigidbody.AddForce(force);
-        _heldRigidbody.angularVelocity *= 0.95f;
     }
 
     void ClearObjectPhysics()
     {
         if (_heldRigidbody != null)
         {
-            _heldRigidbody.useGravity = true;
+            _heldRigidbody.useGravity = _initialUseGravity;
             _heldRigidbody.linearDamping = _initialDrag;
             _heldRigidbody.angularDamping = _initialAngularDrag;
+            _heldRigidbody.collisionDetectionMode = _initialDetectionMode;
         }
     }
 }
