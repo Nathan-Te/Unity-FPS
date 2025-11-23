@@ -13,10 +13,9 @@ public class PhysicsGrabber : MonoBehaviour
 
     [Header("Settings Physique")]
     public float grabForce = 150f;
-    public float grabDamper = 10f;
+    public float grabDamper = 10f; // Sert maintenant à "coller" la vitesse de l'objet à celle de la main
     public float dragForce = 10f;
     public float throwForce = 15f;
-    // J'ai retiré "throwSpin" des variables car inutile
 
     [Header("Sécurité")]
     public float breakDistance = 2.0f;
@@ -24,10 +23,14 @@ public class PhysicsGrabber : MonoBehaviour
     private Rigidbody _heldRigidbody;
     private HeavyFPSController _playerController;
 
+    // Sauvegarde des états
     private float _initialDrag;
     private float _initialAngularDrag;
     private bool _initialUseGravity;
     private CollisionDetectionMode _initialDetectionMode;
+
+    // NOUVEAU : Pour calculer la vitesse de ton mouvement de souris
+    private Vector3 _lastHoldPosition;
 
     public bool IsGrabbing => _heldRigidbody != null;
 
@@ -55,14 +58,13 @@ public class PhysicsGrabber : MonoBehaviour
     {
         if (_heldRigidbody != null)
         {
-            // Relâcher (Clic Gauche UP)
+            // Drop (Relâcher Clic Gauche) -> Conserve la vélocité naturelle (le fameux "Fling")
             if (Input.GetMouseButtonUp(0)) DropObject();
-            // Lancer (Clic Droit DOWN)
+            // Throw (Clic Droit) -> Propulsion forcée
             else if (Input.GetMouseButtonDown(1)) ThrowObject();
         }
         else
         {
-            // Attraper (Clic Gauche DOWN)
             if (Input.GetMouseButtonDown(0)) TryGrab();
         }
     }
@@ -94,6 +96,9 @@ public class PhysicsGrabber : MonoBehaviour
         rb.angularDamping = dragForce;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
+        // Init de la position pour éviter un saut de force au premier frame
+        _lastHoldPosition = holdPoint.position;
+
         _heldRigidbody = rb;
         _playerController.SetCarryingState(true, grabbable.speedMultiplier, grabbable.allowSprinting);
     }
@@ -105,6 +110,9 @@ public class PhysicsGrabber : MonoBehaviour
         ClearObjectPhysics();
         _heldRigidbody = null;
         _playerController.ResetCarryingState();
+
+        // C'est tout ! Comme on ne freine plus l'objet artificiellement dans MoveObjectToHoldPoint,
+        // il partira tout seul avec la vitesse qu'il avait au moment du lâcher.
     }
 
     void ThrowObject()
@@ -112,13 +120,7 @@ public class PhysicsGrabber : MonoBehaviour
         if (_heldRigidbody == null) return;
 
         Rigidbody rb = _heldRigidbody;
-
-        // On lâche l'objet proprement (remet la gravité, etc.)
         DropObject();
-
-        // --- PROPULSION PURE ---
-        // Aucune rotation ajoutée ("AddTorque" supprimé).
-        // L'objet partira droit et ne tournera que s'il percute un mur/sol.
         rb.AddForce(playerCamera.forward * throwForce, ForceMode.Impulse);
     }
 
@@ -131,11 +133,26 @@ public class PhysicsGrabber : MonoBehaviour
             return;
         }
 
-        Vector3 direction = holdPoint.position - _heldRigidbody.position;
-        Vector3 targetVelocity = direction * grabForce;
-        Vector3 force = targetVelocity - _heldRigidbody.linearVelocity * grabDamper;
+        // --- CŒUR DU SYSTÈME ORGANIQUE ---
 
-        _heldRigidbody.AddForce(force);
+        // 1. Quelle est la vitesse de la main (du joueur) ?
+        Vector3 holdPointVelocity = (holdPoint.position - _lastHoldPosition) / Time.fixedDeltaTime;
+
+        // 2. Calcul des erreurs
+        Vector3 errorPos = holdPoint.position - _heldRigidbody.position;
+        Vector3 errorVel = holdPointVelocity - _heldRigidbody.linearVelocity;
+
+        // 3. Application des forces (PID simplifié)
+        // P (Spring) : On tire l'objet vers la position
+        Vector3 springForce = errorPos * grabForce;
+
+        // D (Damper Relatif) : On essaie de matcher la vitesse de l'objet avec celle de la main
+        // C'est ça qui permet de transférer ton mouvement de souris à l'objet !
+        Vector3 damperForce = errorVel * grabDamper;
+
+        _heldRigidbody.AddForce(springForce + damperForce);
+
+        _lastHoldPosition = holdPoint.position;
     }
 
     void ClearObjectPhysics()
