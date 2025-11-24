@@ -8,6 +8,10 @@ public class PhysicsGrabbable : MonoBehaviour
     [Header("Infos Objet")]
     public ObjectWeight weightType = ObjectWeight.Light;
 
+    [Header("Comportement Grab")]
+    [Tooltip("Si VRAI : On coupe la gravité et on augmente la friction quand tenu (Caisse). Si FAUX : On laisse la physique gérer (Valve, Tiroir).")]
+    public bool applyDragWhenHeld = true; // NOUVEAU : Par défaut True pour les objets standards
+
     [Header("Impact sur le Joueur")]
     [Range(0.1f, 1f)]
     public float speedMultiplier = 0.9f;
@@ -23,32 +27,25 @@ public class PhysicsGrabbable : MonoBehaviour
 
     void SetupPhysics()
     {
-        // --- CORRECTION PHYSIQUE SÈCHE ---
-
-        // Pour éviter que l'objet ne glisse indéfiniment au sol, 
-        // il vaut mieux utiliser un "Physic Material" (Friction) sur le Collider
-        // plutôt que d'augmenter le Damping (qui freine aussi dans les airs).
-
         if (weightType == ObjectWeight.Heavy)
         {
-            rb.mass = 20f; // Plus lourd (20kg)
-            rb.linearDamping = 0.05f; // Très peu de résistance à l'air (ne flotte pas)
-            rb.angularDamping = 0.15f; // Tourne longtemps
+            rb.mass = 20f;
+            rb.linearDamping = 0.05f;
+            rb.angularDamping = 0.15f;
 
             speedMultiplier = 0.5f;
             allowSprinting = false;
         }
         else
         {
-            rb.mass = 2f; // Standard (2kg)
-            rb.linearDamping = 0.05f; // Chute rapide
-            rb.angularDamping = 0.15f; // Rotation libre
+            rb.mass = 2f;
+            rb.linearDamping = 0.05f;
+            rb.angularDamping = 0.15f;
 
             speedMultiplier = 0.9f;
             allowSprinting = true;
         }
 
-        // Optionnel : Pour éviter que les objets passent à travers les murs lors des lancers rapides
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
     }
 }

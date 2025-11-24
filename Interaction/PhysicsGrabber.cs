@@ -91,10 +91,24 @@ public class PhysicsGrabber : MonoBehaviour
         _initialUseGravity = rb.useGravity;
         _initialDetectionMode = rb.collisionDetectionMode;
 
-        rb.useGravity = false;
-        rb.linearDamping = dragForce;
-        rb.angularDamping = dragForce;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        // --- MODIFICATION ICI ---
+        if (grabbable.applyDragWhenHeld)
+        {
+            // Comportement classique (Portage d'objet)
+            rb.useGravity = false;
+            rb.linearDamping = dragForce;
+            rb.angularDamping = dragForce;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        }
+        else
+        {
+            // Comportement Mécanisme (Valve/Tiroir)
+            // On ne touche PAS à la gravité ni au drag.
+            // On laisse le HingeJoint/ConfigurableJoint gérer les contraintes.
+            // On s'assure juste que la détection est bonne.
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        }
+        // -------------------------
 
         // Init de la position pour éviter un saut de force au premier frame
         _lastHoldPosition = holdPoint.position;
