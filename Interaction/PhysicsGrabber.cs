@@ -91,10 +91,12 @@ public class PhysicsGrabber : MonoBehaviour
         _initialUseGravity = rb.useGravity;
         _initialDetectionMode = rb.collisionDetectionMode;
 
-        // --- MODIFICATION ICI ---
+        // --- NOUVEAU : On signale qu'on tient l'objet ---
+        grabbable.IsHeld = true;
+        // ------------------------------------------------
+
         if (grabbable.applyDragWhenHeld)
         {
-            // Comportement classique (Portage d'objet)
             rb.useGravity = false;
             rb.linearDamping = dragForce;
             rb.angularDamping = dragForce;
@@ -102,17 +104,10 @@ public class PhysicsGrabber : MonoBehaviour
         }
         else
         {
-            // Comportement Mécanisme (Valve/Tiroir)
-            // On ne touche PAS à la gravité ni au drag.
-            // On laisse le HingeJoint/ConfigurableJoint gérer les contraintes.
-            // On s'assure juste que la détection est bonne.
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         }
-        // -------------------------
 
-        // Init de la position pour éviter un saut de force au premier frame
         _lastHoldPosition = holdPoint.position;
-
         _heldRigidbody = rb;
         _playerController.SetCarryingState(true, grabbable.speedMultiplier, grabbable.allowSprinting);
     }
@@ -121,12 +116,14 @@ public class PhysicsGrabber : MonoBehaviour
     {
         if (_heldRigidbody == null) return;
 
+        // --- NOUVEAU : On signale qu'on lâche ---
+        PhysicsGrabbable grabbable = _heldRigidbody.GetComponent<PhysicsGrabbable>();
+        if (grabbable != null) grabbable.IsHeld = false;
+        // ----------------------------------------
+
         ClearObjectPhysics();
         _heldRigidbody = null;
         _playerController.ResetCarryingState();
-
-        // C'est tout ! Comme on ne freine plus l'objet artificiellement dans MoveObjectToHoldPoint,
-        // il partira tout seul avec la vitesse qu'il avait au moment du lâcher.
     }
 
     void ThrowObject()

@@ -17,6 +17,8 @@ public class PhysicsGrabbable : MonoBehaviour
     public float speedMultiplier = 0.9f;
     public bool allowSprinting = true;
 
+    [HideInInspector] public bool IsHeld = false;
+
     [HideInInspector] public Rigidbody rb;
 
     void Awake()
