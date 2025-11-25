@@ -4,7 +4,7 @@ public class HitscanWeapon : WeaponBase
 {
     [Header("Spécifique Hitscan")]
     public Transform muzzle;
-    public float range = 100f;
+    public float range = 100f; // Vérifie que cette ligne est bien là
     public float damage = 10f;
     public float impactForce = 5f;
     public LayerMask hitLayers;
@@ -12,18 +12,18 @@ public class HitscanWeapon : WeaponBase
     [Header("Impacts")]
     public GameObject impactPrefab;
 
-    // ATTENTION : NE PAS REDÉCLARER 'currentAmmo' ICI !
-    // Elle est héritée de WeaponBase.
-
     protected override void ExecuteFireLogic()
     {
         RaycastHit hit;
 
-        // On utilise 'muzzle' (défini ici) et la logique de tir
+        // --- DEBUG VISUEL ---
+        // Dessine le rayon dans la scène (visible dans l'onglet Scene, pas Game)
+        // Vert = Portée max, Rouge = Impact
+        Debug.DrawRay(muzzle.position, muzzle.forward * range, Color.green, 2f);
+        // --------------------
+
         if (Physics.Raycast(muzzle.position, muzzle.forward, out hit, range, hitLayers))
         {
-            // Debug.DrawLine(muzzle.position, hit.point, Color.red, 1f);
-
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             if (target != null)
             {

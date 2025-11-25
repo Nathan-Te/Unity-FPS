@@ -28,6 +28,9 @@ public abstract class WeaponBase : MonoBehaviour
     public AudioClip reloadSound;
     public AudioClip emptySound;
 
+    [Header("Collision Mur")]
+    public WeaponCollision weaponCollision;
+
     protected float _nextFireTime;
     protected bool _isReloading = false;
     protected PlayerInventory _inventory;
@@ -37,6 +40,12 @@ public abstract class WeaponBase : MonoBehaviour
     {
         _inventory = FindAnyObjectByType<PlayerInventory>();
         _playerController = GetComponentInParent<HeavyFPSController>();
+
+        // 2. Tentative de secours (Si l'arme est trop enfouie ou détachée)
+        if (_playerController == null)
+        {
+            _playerController = FindAnyObjectByType<HeavyFPSController>();
+        }
     }
 
     protected virtual void Update()
@@ -56,6 +65,8 @@ public abstract class WeaponBase : MonoBehaviour
 
     void HandleShooting()
     {
+        if (weaponCollision != null && weaponCollision.IsBlocked) return;
+
         bool intentToFire = isAutomatic ? Input.GetMouseButton(0) : Input.GetMouseButtonDown(0);
 
         if (intentToFire && Time.time >= _nextFireTime)
