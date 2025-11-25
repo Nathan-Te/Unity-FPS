@@ -4,7 +4,7 @@ public class HitscanWeapon : WeaponBase
 {
     [Header("Spécifique Hitscan")]
     public Transform muzzle;
-    public float range = 100f; // Vérifie que cette ligne est bien là
+    public float range = 100f;
     public float damage = 10f;
     public float impactForce = 5f;
     public LayerMask hitLayers;
@@ -16,11 +16,8 @@ public class HitscanWeapon : WeaponBase
     {
         RaycastHit hit;
 
-        // --- DEBUG VISUEL ---
-        // Dessine le rayon dans la scène (visible dans l'onglet Scene, pas Game)
-        // Vert = Portée max, Rouge = Impact
+        // Debug
         Debug.DrawRay(muzzle.position, muzzle.forward * range, Color.green, 2f);
-        // --------------------
 
         if (Physics.Raycast(muzzle.position, muzzle.forward, out hit, range, hitLayers))
         {
@@ -32,7 +29,11 @@ public class HitscanWeapon : WeaponBase
 
             if (hit.rigidbody != null)
             {
-                hit.rigidbody.AddForce(-hit.normal * impactForce, ForceMode.Impulse);
+                // --- CORRECTION PHYSIQUE ---
+                // 1. Direction : On utilise muzzle.forward (direction de la balle) au lieu de la normale
+                // 2. Application : On utilise AddForceAtPosition pour créer de la rotation réaliste
+                hit.rigidbody.AddForceAtPosition(muzzle.forward * impactForce, hit.point, ForceMode.Impulse);
+                // ---------------------------
             }
 
             if (impactPrefab)
