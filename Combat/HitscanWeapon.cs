@@ -36,11 +36,19 @@ public class HitscanWeapon : WeaponBase
                 // ---------------------------
             }
 
-            if (impactPrefab)
+            if (SurfaceManager.Instance != null)
             {
-                GameObject impact = Instantiate(impactPrefab, hit.point, Quaternion.LookRotation(hit.normal));
-                impact.transform.parent = hit.collider.transform;
-                Destroy(impact, 5f);
+                // Le Manager s'occupe de tout (Son + Decal adapté à la matière)
+                SurfaceManager.Instance.PlayBulletImpact(hit.point, hit.normal, hit);
+            }
+            else
+            {
+                // Fallback si pas de manager (Ton ancien code)
+                if (impactPrefab)
+                {
+                    GameObject impact = Instantiate(impactPrefab, hit.point, Quaternion.LookRotation(hit.normal));
+                    Destroy(impact, 5f);
+                }
             }
         }
     }

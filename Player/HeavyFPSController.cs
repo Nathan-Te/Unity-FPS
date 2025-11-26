@@ -65,6 +65,12 @@ public class HeavyFPSController : MonoBehaviour
     public float CurrentFreeAimX { get; private set; }
     public float CurrentFreeAimY { get; private set; }
 
+    [Header("Audio & Surface")]
+    public AudioSource footstepSource; // Assigne une AudioSource ici (sur le joueur)
+    public float baseStepInterval = 0.6f; // Distance entre deux pas (Marche)
+    public float runStepMultiplier = 0.6f; // Pas plus rapides/fréquents en course (0.6 * 0.6 = 0.36m)
+    public float crouchStepMultiplier = 1.5f; // Pas plus lents en accroupi
+
     // --- INTERNES ---
     private Rigidbody rb;
     private CapsuleCollider capsule;
@@ -99,6 +105,8 @@ public class HeavyFPSController : MonoBehaviour
 
     private float _recoilPitch;
     private float _recoilYaw;
+
+    private float _footstepDistanceCounter; // Compteur de distance
 
     void Start()
     {
@@ -135,6 +143,8 @@ public class HeavyFPSController : MonoBehaviour
         HandleRotationWithFreeAim();
 
         HandleStamina();
+
+        HandleFootsteps();
 
         if (Input.GetKeyDown(KeyCode.Space) && !_isCrouching && !_isCarryingObject) VaultCheck();
         if (Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftControl))
@@ -530,5 +540,51 @@ public class HeavyFPSController : MonoBehaviour
 
         // (Je ne remets pas tout le gizmo de vaulting complexe ici pour alléger, 
         // mais ton code précédent pour OnDrawGizmosSelected était bon !)
+    }
+
+    void HandleFootsteps()
+    {
+        if (!_isGrounded) return;
+
+        // On n'avance le compteur que si on bouge (Vitesse > seuil)
+        Vector2 horizontalVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.z);
+        if (horizontalVelocity.magnitude < 0.1f) return;
+
+        // Calcul de l'intervalle selon l'état
+        float currentInterval = baseStepInterval;
+        if (IsSprinting) currentInterval *= runStepMultiplier;
+        if (_isCrouching) currentInterval *= crouchStepMultiplier;
+
+        // On ajoute la distance parcourue ce frame
+        _footstepDistanceCounter += horizontalVelocity.magnitude * Time.deltaTime;
+
+        // Si on dépasse l'intervalle -> PAS !
+        if (_footstepDistanceCounter >= currentInterval)
+        {
+            PlayFootstepSound();
+            _footstepDistanceCounter = 0f;
+        }
+    }
+
+    void PlayFootstepSound()
+    {
+        // On cherche ce qu'il y a sous nos pieds
+        RaycastHit hit;
+        // On tire un peu au-dessus des pieds vers le bas
+        Vector3 startPos = transform.position + Vector3.up * 0.5f;
+
+        if (Physics.Raycast(startPos, Vector3.down, out hit, 1.0f, groundMask))
+        {
+            // Volume plus fort si on court, plus faible si accroupi
+            float volume = 1f;
+            if (IsSprinting) volume = 1.5f;
+            if (_isCrouching) volume = 0.5f;
+
+            // Appel au Manager
+            if (SurfaceManager.Instance != null)
+            {
+                SurfaceManager.Instance.PlayFootstep(hit.point, hit, footstepSource, volume);
+            }
+        }
     }
 }
