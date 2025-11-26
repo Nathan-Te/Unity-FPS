@@ -1,12 +1,14 @@
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
     [Header("UI")]
     public Image iconImage;
     public TMPro.TextMeshProUGUI quantityText;
+    public TextMeshProUGUI shortcutText;
 
     // Données internes
     public InventoryItem myItem;
@@ -37,8 +39,25 @@ public class ItemGridUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
             if (quantityText) quantityText.gameObject.SetActive(false);
         }
 
+        if (shortcutText) shortcutText.gameObject.SetActive(false);
+
         RefreshVisualSize(); // On sort la logique de taille dans une fonction
         UpdatePositionOnGrid();
+    }
+
+    public void SetShortcutDisplay(int slotIndex)
+    {
+        if (shortcutText == null) return;
+
+        if (slotIndex >= 0)
+        {
+            shortcutText.gameObject.SetActive(true);
+            shortcutText.text = "[" + (slotIndex + 1).ToString() + "]"; // Affiche 1 au lieu de 0
+        }
+        else
+        {
+            shortcutText.gameObject.SetActive(false);
+        }
     }
 
     public void UpdatePositionOnGrid()

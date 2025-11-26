@@ -187,4 +187,16 @@ public class WeaponManager : MonoBehaviour
         }
         return false;
     }
+
+    public int GetItemSlotIndex(ItemData item)
+    {
+        for (int i = 0; i < _loadoutSlots.Length; i++)
+        {
+            if (_loadoutSlots[i] != null && _loadoutSlots[i].linkedItem == item)
+            {
+                return i; // Retourne 0, 1 ou 2
+            }
+        }
+        return -1; // Pas équipé
+    }
 }

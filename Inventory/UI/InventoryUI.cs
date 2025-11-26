@@ -66,8 +66,7 @@ public class InventoryUI : MonoBehaviour
             bool success = weaponManager.AssignWeaponToSlot(_selectedItem.data, slotIndex);
             if (success)
             {
-                // Feedback visuel optionnel (ex: jouer un son "Equip")
-                Debug.Log("Slot assigné !");
+                RefreshItems();
             }
         }
     }
@@ -134,6 +133,13 @@ public class InventoryUI : MonoBehaviour
             GameObject obj = Instantiate(itemUiPrefab, gridContainer);
             ItemGridUI script = obj.GetComponent<ItemGridUI>();
             script.Setup(invItem, this);
+
+            if (weaponManager != null)
+            {
+                int slotIndex = weaponManager.GetItemSlotIndex(invItem.data);
+                script.SetShortcutDisplay(slotIndex);
+            }
+
             _spawnedItems.Add(script);
         }
     }
