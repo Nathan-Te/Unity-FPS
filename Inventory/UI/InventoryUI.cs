@@ -29,6 +29,8 @@ public class InventoryUI : MonoBehaviour
 
     public Button dropButton;
 
+    public WeaponManager weaponManager;
+
     private bool _isOpen = false;
     private List<ItemGridUI> _spawnedItems = new List<ItemGridUI>();
     private InventoryItem _selectedItem; // L'objet actuellement cliqué
@@ -47,6 +49,26 @@ public class InventoryUI : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.I))
         {
             ToggleInventory();
+        }
+
+        if (_isOpen && _selectedItem != null)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1)) TryAssign(0);
+            if (Input.GetKeyDown(KeyCode.Alpha2)) TryAssign(1);
+            if (Input.GetKeyDown(KeyCode.Alpha3)) TryAssign(2);
+        }
+    }
+
+    void TryAssign(int slotIndex)
+    {
+        if (weaponManager != null)
+        {
+            bool success = weaponManager.AssignWeaponToSlot(_selectedItem.data, slotIndex);
+            if (success)
+            {
+                // Feedback visuel optionnel (ex: jouer un son "Equip")
+                Debug.Log("Slot assigné !");
+            }
         }
     }
 

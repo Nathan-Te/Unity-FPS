@@ -11,6 +11,8 @@ public class PlayerInventory : MonoBehaviour
     // La liste des objets placés (avec leurs coordonnées)
     public List<InventoryItem> storedItems = new List<InventoryItem>();
 
+    public WeaponManager weaponManager;
+
     [Header("Drop")]
     public Transform dropPoint;
 
@@ -128,6 +130,11 @@ public class PlayerInventory : MonoBehaviour
 
     public void DropItem(InventoryItem item)
     {
+        if (weaponManager != null)
+        {
+            weaponManager.OnItemDropped(item.data);
+        }
+
         // 1. On retire l'item de la liste logique
         RemoveItem(item);
 
