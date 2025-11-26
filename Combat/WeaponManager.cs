@@ -89,9 +89,22 @@ public class WeaponManager : MonoBehaviour
             return;
         }
 
-        // Mode Combat
-        SetExplorationMode(false);
-        weaponToEquip.weaponScript.gameObject.SetActive(true);
+        if (physicsGrabber)
+        {
+            physicsGrabber.DropObject();
+            physicsGrabber.enabled = false;
+        }
+
+        if (weaponToEquip.weaponScript != null)
+        {
+            weaponToEquip.weaponScript.gameObject.SetActive(true);
+
+            // 3. On active/désactive le Crosshair selon le paramètre de l'arme
+            if (crosshairUI)
+            {
+                crosshairUI.gameObject.SetActive(weaponToEquip.weaponScript.showCrosshair);
+            }
+        }
     }
 
     void SetExplorationMode(bool isExploration)

@@ -9,6 +9,7 @@ public abstract class WeaponBase : MonoBehaviour
     public bool isAutomatic = false;
 
     [Header("Munitions")]
+    public bool infiniteAmmo = false;
     public int currentAmmo = 12; // C'est LA SEULE variable ammo qui doit exister
     public int maxAmmo = 12;
     public ItemData ammoItemData;
@@ -30,6 +31,9 @@ public abstract class WeaponBase : MonoBehaviour
 
     [Header("Collision Mur")]
     public WeaponCollision weaponCollision;
+
+    [Tooltip("Si VRAI, le réticule s'affiche quand cette arme est équipée.")]
+    public bool showCrosshair = true;
 
     protected float _nextFireTime;
     protected bool _isReloading = false;
@@ -88,7 +92,7 @@ public abstract class WeaponBase : MonoBehaviour
 
     public void Fire()
     {
-        currentAmmo--; // Modifie la variable du parent
+        if (!infiniteAmmo) currentAmmo--; // Modifie la variable du parent
 
         if (muzzleFlash) muzzleFlash.Play();
         if (audioSource && shootSound)
