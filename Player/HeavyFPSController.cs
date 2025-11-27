@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using Unity.Cinemachine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
@@ -7,6 +8,14 @@ public class HeavyFPSController : MonoBehaviour
 {
     [Header("Architecture Découplée")]
     public Transform visualRoot;
+
+    [Header("Caméra & Zoom")]
+    public CinemachineCamera playerCamera; // Assigne ta MainCamera ici
+    public float zoomSpeed = 10f;
+
+    private float _defaultFOV;
+    private float _targetFOV;
+    private float _aimSensitivityMultiplier = 1.0f;
 
     [Header("État & Sol")]
     public LayerMask groundMask;
@@ -133,6 +142,20 @@ public class HeavyFPSController : MonoBehaviour
             _rotationX = visualRoot.eulerAngles.x;
             _rotationY = visualRoot.eulerAngles.y;
         }
+
+        if (playerCamera == null) playerCamera = FindAnyObjectByType<CinemachineCamera>();
+
+        if (playerCamera != null)
+        {
+            _defaultFOV = playerCamera.Lens.FieldOfView;
+        }
+        else
+        {
+            // Fallback si pas de Cinemachine (évite le crash)
+            _defaultFOV = 60f;
+            Debug.LogWarning("Aucune CinemachineCamera assignée sur le HeavyFPSController !");
+        }
+        _targetFOV = _defaultFOV;
     }
 
     void Update()
@@ -145,6 +168,8 @@ public class HeavyFPSController : MonoBehaviour
         HandleStamina();
 
         HandleFootsteps();
+
+        HandleZoom();
 
         if (Input.GetKeyDown(KeyCode.Space) && !_isCrouching && !_isCarryingObject) VaultCheck();
         if (Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftControl))
@@ -196,8 +221,8 @@ public class HeavyFPSController : MonoBehaviour
         // --- AJOUT : SI LE CURSEUR EST LIBRE (MENU), ON NE TOURNE PAS ---
         if (Cursor.lockState != CursorLockMode.Locked) return;
 
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * _aimSensitivityMultiplier;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * _aimSensitivityMultiplier;
 
         bool isFreeAimActive = useFreeAim && !IsSprinting;
 
@@ -585,6 +610,43 @@ public class HeavyFPSController : MonoBehaviour
             {
                 SurfaceManager.Instance.PlayFootstep(hit.point, hit, footstepSource, volume);
             }
+        }
+    }
+
+    public float GetCurrentSpeed()
+    {
+        if (rb == null) return 0f;
+        // On prend la vitesse horizontale seulement (on ignore le saut/chute)
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        return horizontalVel.magnitude;
+    }
+
+    void HandleZoom()
+    {
+        if (playerCamera != null)
+        {
+            // On récupère les réglages actuels de la lentille
+            var lens = playerCamera.Lens;
+
+            // On modifie le FOV avec une interpolation fluide
+            lens.FieldOfView = Mathf.Lerp(lens.FieldOfView, _targetFOV, Time.deltaTime * zoomSpeed);
+
+            // On réapplique les réglages modifiés
+            playerCamera.Lens = lens;
+        }
+    }
+
+    public void SetAimState(bool isAiming, float aimFOV, float sensitivityRatio)
+    {
+        if (isAiming)
+        {
+            _targetFOV = aimFOV;
+            _aimSensitivityMultiplier = sensitivityRatio;
+        }
+        else
+        {
+            _targetFOV = _defaultFOV;
+            _aimSensitivityMultiplier = 1.0f;
         }
     }
 }

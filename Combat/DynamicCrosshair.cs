@@ -18,6 +18,10 @@ public class DynamicCrosshair : MonoBehaviour
     public float maxSpread = 60f;
     public float spreadRecovery = 5f;
 
+    [Header("Visée")]
+    public float aimSpreadFactor = 0.4f;
+    private bool _isAiming = false;
+
     private float _currentSpread;
     private float _addSpreadAmount;
 
@@ -52,19 +56,26 @@ public class DynamicCrosshair : MonoBehaviour
     {
         float targetSpread = baseSpread + _addSpreadAmount;
 
-        // Lissage du mouvement des barres
-        _currentSpread = Mathf.Lerp(_currentSpread, targetSpread, Time.deltaTime * 15f);
+        // --- MODIFICATION ICI ---
+        if (_isAiming)
+        {
+            targetSpread *= aimSpreadFactor;
+        }
+        // ------------------------
 
-        // Retour au calme
+        _currentSpread = Mathf.Lerp(_currentSpread, targetSpread, Time.deltaTime * 15f);
         _addSpreadAmount = Mathf.Lerp(_addSpreadAmount, 0, Time.deltaTime * spreadRecovery);
 
-        // Application aux positions (Note les signes - et +)
+        // ... (Application aux positions inchangée) ...
         if (topPart) topPart.anchoredPosition = new Vector2(0, _currentSpread);
         if (bottomPart) bottomPart.anchoredPosition = new Vector2(0, -_currentSpread);
-
-        // Pour gauche/droite, on bouge sur X
         if (leftPart) leftPart.anchoredPosition = new Vector2(-_currentSpread, 0);
         if (rightPart) rightPart.anchoredPosition = new Vector2(_currentSpread, 0);
+    }
+
+    public void SetAiming(bool state)
+    {
+        _isAiming = state;
     }
 
     public void AddRecoil(float amount)

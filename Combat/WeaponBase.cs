@@ -10,9 +10,13 @@ public abstract class WeaponBase : MonoBehaviour
 
     [Header("Munitions")]
     public bool infiniteAmmo = false;
-    public int currentAmmo = 12; // C'est LA SEULE variable ammo qui doit exister
+    public int currentAmmo = 12;
     public int maxAmmo = 12;
     public ItemData ammoItemData;
+
+    [Header("Animation")]
+    public Animator weaponAnimator; // <-- Référence à l'Animator du modèle 3D
+    public float reloadTime = 1.5f; // Durée du rechargement (doit matcher l'anim)
 
     [Header("Recul & Sensations")]
     public ProceduralRecoil recoilScript;
@@ -35,36 +39,136 @@ public abstract class WeaponBase : MonoBehaviour
     [Tooltip("Si VRAI, le réticule s'affiche quand cette arme est équipée.")]
     public bool showCrosshair = true;
 
+    [Header("Visée (ADS)")]
+    public bool canAim = true;
+    public float aimFOV = 40f; // FOV quand on vise (Default est souvent 60 ou 75)
+    [Range(0.1f, 1f)]
+    public float aimSensitivityRatio = 0.5f;
+
+    protected bool _isAiming = false;
+
     protected float _nextFireTime;
     protected bool _isReloading = false;
     protected PlayerInventory _inventory;
     protected HeavyFPSController _playerController;
+
+    // Hachage des paramètres Animator pour la performance
+    protected int _animIDSpeed;
+    protected int _animIDIsSprinting;
+    protected int _animIDFire;
+    protected int _animIDReload;
+    protected int _animIDReloadSpeed;
 
     protected virtual void Start()
     {
         _inventory = FindAnyObjectByType<PlayerInventory>();
         _playerController = GetComponentInParent<HeavyFPSController>();
 
-        // 2. Tentative de secours (Si l'arme est trop enfouie ou détachée)
         if (_playerController == null)
         {
             _playerController = FindAnyObjectByType<HeavyFPSController>();
         }
+
+        // Si l'animator n'est pas assigné manuellement, on cherche dans les enfants
+        if (weaponAnimator == null) weaponAnimator = GetComponentInChildren<Animator>();
+
+        SetupAnimatorIds();
+    }
+
+    protected virtual void OnDisable()
+    {
+        if (_isAiming)
+        {
+            _isAiming = false;
+            ResetAimEffects();
+        }
+    }
+
+    void SetupAnimatorIds()
+    {
+        _animIDSpeed = Animator.StringToHash("Speed");
+        _animIDIsSprinting = Animator.StringToHash("IsSprinting");
+        _animIDFire = Animator.StringToHash("Fire");
+        _animIDReload = Animator.StringToHash("Reload");
+        _animIDReloadSpeed = Animator.StringToHash("ReloadSpeed");
     }
 
     protected virtual void Update()
     {
-        if (Cursor.lockState != CursorLockMode.Locked) return;
+        UpdateAnimationState();
 
-        // Bloque le tir si on recharge
+        if (Cursor.lockState != CursorLockMode.Locked) return;
         if (_isReloading) return;
 
         HandleShooting();
+
+        // --- AJOUT ---
+        HandleAiming();
+        // -------------
 
         if (Input.GetKeyDown(KeyCode.R) && currentAmmo < maxAmmo)
         {
             StartCoroutine(ReloadRoutine());
         }
+    }
+
+    void HandleAiming()
+    {
+        if (!canAim) return;
+
+        // Entrée en visée
+        if (Input.GetMouseButtonDown(1))
+        {
+            _isAiming = true;
+            ApplyAimEffects(true);
+        }
+
+        // Sortie de visée
+        if (Input.GetMouseButtonUp(1))
+        {
+            _isAiming = false;
+            ApplyAimEffects(false);
+        }
+    }
+
+    void ApplyAimEffects(bool state)
+    {
+        // 1. Contrôleur (FOV + Sensibilité)
+        if (_playerController)
+        {
+            _playerController.SetAimState(state, aimFOV, aimSensitivityRatio);
+        }
+
+        // 2. Crosshair (Rétrécissement)
+        if (crosshairScript)
+        {
+            crosshairScript.SetAiming(state);
+        }
+
+        // 3. Animator (Optionnel pour plus tard : position des bras)
+        if (weaponAnimator)
+        {
+            weaponAnimator.SetBool("IsAiming", state); // Pense à ajouter ce paramètre bool dans ton Animator si tu veux l'utiliser
+        }
+    }
+
+    void ResetAimEffects()
+    {
+        if (_playerController) _playerController.SetAimState(false, 0, 1); // Reset
+        if (crosshairScript) crosshairScript.SetAiming(false);
+    }
+
+    // Synchronisation des variables de mouvement
+    void UpdateAnimationState()
+    {
+        if (weaponAnimator == null || _playerController == null) return;
+
+        // Vitesse (pour le Blend Tree Idle/Walk/Run)
+        float currentSpeed = _playerController.GetCurrentSpeed();
+        weaponAnimator.SetFloat(_animIDSpeed, currentSpeed, 0.1f, Time.deltaTime);
+
+        // État de sprint
+        weaponAnimator.SetBool(_animIDIsSprinting, _playerController.IsSprinting);
     }
 
     void HandleShooting()
@@ -75,7 +179,7 @@ public abstract class WeaponBase : MonoBehaviour
 
         if (intentToFire && Time.time >= _nextFireTime)
         {
-            if (currentAmmo > 0)
+            if (currentAmmo > 0 || infiniteAmmo)
             {
                 Fire();
                 _nextFireTime = Time.time + fireRate;
@@ -92,7 +196,13 @@ public abstract class WeaponBase : MonoBehaviour
 
     public void Fire()
     {
-        if (!infiniteAmmo) currentAmmo--; // Modifie la variable du parent
+        if (!infiniteAmmo) currentAmmo--;
+
+        // Trigger Animation Tir
+        if (weaponAnimator != null)
+        {
+            weaponAnimator.SetTrigger(_animIDFire);
+        }
 
         if (muzzleFlash) muzzleFlash.Play();
         if (audioSource && shootSound)
@@ -114,18 +224,23 @@ public abstract class WeaponBase : MonoBehaviour
 
     protected IEnumerator ReloadRoutine()
     {
-        // 1. Début Rechargement
         _isReloading = true;
+
+        // Trigger Animation Reload
+        if (weaponAnimator != null)
+        {
+            weaponAnimator.SetTrigger(_animIDReload);
+            // Optionnel : Ajuster la vitesse de l'anim pour qu'elle dure exactement 'reloadTime'
+            // weaponAnimator.SetFloat(_animIDReloadSpeed, 1.0f / reloadTime); 
+        }
+
         if (audioSource && reloadSound) audioSource.PlayOneShot(reloadSound);
 
-        // 2. Attente (Animation) - On ne touche PAS aux balles ici
-        yield return new WaitForSeconds(1.5f);
+        // On attend la durée définie dans l'inspecteur (plutôt que 1.5f en dur)
+        yield return new WaitForSeconds(reloadTime);
 
-        // 3. Calcul & Consommation (Au dernier moment)
-        // On recalcule 'needed' maintenant, au cas où quelque chose aurait changé
         int needed = maxAmmo - currentAmmo;
 
-        // Sécurité : si on est plein, on annule
         if (needed <= 0)
         {
             _isReloading = false;
@@ -139,14 +254,12 @@ public abstract class WeaponBase : MonoBehaviour
         }
         else
         {
-            taken = needed; // Mode Debug (Munitions infinies)
+            taken = needed;
         }
 
-        // 4. Ajout des balles
         if (taken > 0)
         {
             currentAmmo += taken;
-            // Mise à jour UI
             FindAnyObjectByType<InventoryUI>()?.SendMessage("RefreshItems", SendMessageOptions.DontRequireReceiver);
         }
 
